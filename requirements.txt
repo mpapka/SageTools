@@ -1,0 +1,5 @@
+sage-data-client
+pandas
+python-dateutil
+matplotlib
+rich
