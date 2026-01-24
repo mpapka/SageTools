@@ -210,3 +210,12 @@ marimo/_lsp/
 __marimo__/
 *.csv
 *.checkpoint
+
+# Sage Tools specific
+deleteSoon/
+data/csv/
+data/frames/
+data/timelapse/
+data/plots/
+!data/.gitkeep
+nodeRegistry.csv
