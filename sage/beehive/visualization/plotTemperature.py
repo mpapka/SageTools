@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""
+Temperature data plotting for Beehive data.
+
+Generates time-series plots of temperature data with rolling averages
+and gap detection.
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import argparse
+import os
+from typing import Optional
+
+
+def plotTemperature(
+    inputFile: str,
+    output: str = None,
+    title: str = None
+) -> bool:
+    """
+    Plot temperature data from a Beehive CSV file.
+
+    Args:
+        inputFile: Path to the CSV file
+        output: Path to save the plot (if None, displays interactively)
+        title: Custom title for the plot
+
+    Returns:
+        True on success, False on error
+    """
+    if not os.path.exists(inputFile):
+        print(f"Error: File {inputFile} not found.")
+        return False
+
+    print(f"Reading {inputFile}...")
+    try:
+        # low_memory=False prevents DtypeWarning on large files with mixed metadata types
+        # on_bad_lines='skip' handles cases where some rows have more/fewer columns than header
+        df = pd.read_csv(inputFile, low_memory=False, on_bad_lines='skip')
+
+        if df.empty:
+            print("Error: CSV file is empty.")
+            return False
+
+        # Convert timestamp to datetime
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+        # Convert to Fahrenheit
+        df['value'] = pd.to_numeric(df['value'], errors='coerce')
+        df['value'] = (df['value'] * 9/5) + 32
+
+        # Sort by timestamp
+        df = df.sort_values('timestamp')
+
+        # Check for required columns
+        if 'timestamp' not in df.columns or 'value' not in df.columns:
+            print(f"Error: CSV must contain 'timestamp' and 'value' columns. Found: {df.columns.tolist()}")
+            return False
+
+        plt.figure(figsize=(12, 6))
+
+        def plotWithGaps(data, label):
+            # Sort to ensure rolling works
+            data = data.sort_values('timestamp')
+
+            # Calculate rolling average (1 hour window)
+            data = data.set_index('timestamp')
+            rollingAvg = data['value'].rolling(window='1h', min_periods=1).mean()
+            data = data.reset_index()
+
+            # Identify gaps for the rolling average line
+            diff = data['timestamp'].diff()
+            gapIndices = []
+            if len(diff) > 1:
+                medianInterval = diff.median()
+                gapThreshold = medianInterval * 3
+                gapIndices = data.index[diff > gapThreshold].tolist()
+
+            # Plot raw data: one pixel scatter points, 99.5% transparent
+            plt.plot(data['timestamp'], data['value'], ',', color='blue', alpha=0.005, linestyle='none', label=f"{label} (Raw)")
+
+            # For the rolling average to respect gaps, we apply the gap logic
+            rollingData = data.copy()
+            rollingData['value'] = rollingAvg.values
+
+            if gapIndices:
+                newRollingRows = []
+                for idx in gapIndices:
+                    gapTime = rollingData.loc[idx, 'timestamp'] - (diff[idx] / 2)
+                    newRow = rollingData.loc[idx].copy()
+                    newRow['timestamp'] = gapTime
+                    newRow['value'] = float('nan')
+                    newRollingRows.append(newRow)
+                rollingData = pd.concat([rollingData, pd.DataFrame(newRollingRows)]).sort_values('timestamp')
+
+            # Plot rolling average: red line
+            plt.plot(rollingData['timestamp'], rollingData['value'], color='red', linewidth=1.5, label=f"{label} (1h Avg)")
+
+        # If there are multiple VSNs in the file, plot them separately
+        if 'meta.vsn' in df.columns and df['meta.vsn'].nunique() > 1:
+            for vsn in df['meta.vsn'].unique():
+                vsnDf = df[df['meta.vsn'] == vsn].copy()
+                plotWithGaps(vsnDf, f"Node {vsn}")
+            plt.legend()
+        else:
+            vsnLabel = f"Node {df['meta.vsn'].iloc[0]}" if 'meta.vsn' in df.columns else "Temperature"
+            plotWithGaps(df.copy(), vsnLabel)
+            plt.legend()
+
+        plt.xlabel("Time")
+        plt.ylabel("Temperature (F)")
+        plt.ylim(-60, 140)
+
+        # Date formatting
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+
+        plotTitle = title if title else f"Temperature Data from {inputFile}"
+        plt.title(plotTitle)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        if output:
+            plt.savefig(output)
+            print(f"Plot saved to {output}")
+        else:
+            print("Displaying plot...")
+            plt.show()
+
+        return True
+
+    except Exception as e:
+        print(f"Error processing CSV: {e}")
+        return False
+
+
+def main():
+    """Entry point for CLI invocation."""
+    parser = argparse.ArgumentParser(description="Plot temperature data from a Beehive CSV file.")
+    parser.add_argument("inputFile", help="Path to the CSV file generated by beehiveQuery.py or batchQuery.py")
+    parser.add_argument("--output", help="Path to save the plot (e.g., plot.png). If not provided, shows plot.")
+    parser.add_argument("--title", help="Custom title for the plot")
+
+    args = parser.parse_args()
+
+    plotTemperature(args.inputFile, args.output, args.title)
+
+
+if __name__ == "__main__":
+    main()
