@@ -214,7 +214,3 @@ Camera configuration is in `sage/cameras/config.py`. Set `TUNNEL_MODE = True` wh
 - [Sage Data Client (GitHub)](https://github.com/waggle-sensor/sage-data-client) - Python client for Beehive API
 - [Sage Continuum Docs](https://sagecontinuum.org/docs/about/overview) - Official Sage documentation
 - [Waggle Sensor Platform](https://wa8.gl/) - Edge computing platform
-
-## License
-
-MIT License
