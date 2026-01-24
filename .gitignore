@@ -211,11 +211,8 @@ __marimo__/
 *.csv
 *.checkpoint
 
-# Sage Tools specific
+# SageTools specific
 deleteSoon/
-data/csv/
-data/frames/
-data/timelapse/
-data/plots/
+data/
 !data/.gitkeep
 nodeRegistry.csv
