@@ -1,0 +1,17 @@
+# Dependencies for the SageTools classroom notebooks
+
+# Beehive data access
+sage-data-client
+
+# Data handling and numerics
+pandas
+numpy
+
+# Visualization
+matplotlib
+
+# Notebook runtime (skip if your JupyterHub already provides it)
+jupyterlab
+
+# Interactive maps (capstone notebook 06)
+folium
